@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MarineDockSim · 后舷靠泊仿真系统</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https:;">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='none' stroke='%2322d3ee' stroke-width='2'/%3E%3Ccircle cx='12' cy='12' r='3' fill='%2322d3ee'/%3E%3Cpath d='M12 2v4M12 18v4M2 12h4M18 12h4' stroke='%2322d3ee' stroke-width='2'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#0a0e1a; --card:#111827; --pop:#1e293b;
+  --cyan:#22d3ee; --amber:#f59e0b; --red:#ef4444; --green:#10b981;
+  --bd:rgba(34,211,238,0.15); --txt:#e2e8f0; --muted:#94a3b8;
+  --mono:'Consolas','Monaco',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.5}
+a{color:var(--cyan);text-decoration:none}
+a:hover{text-decoration:underline}
+/* ---------- nav ---------- */
+nav{position:fixed;top:0;left:0;right:0;height:56px;background:rgba(10,14,26,0.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--bd);display:flex;align-items:center;padding:0 20px;z-index:100;gap:8px;overflow-x:auto}
+.logo{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--cyan);margin-right:16px;white-space:nowrap}
+.logo svg{width:26px;height:26px}
+.navbtn{background:transparent;border:1px solid transparent;color:var(--muted);padding:7px 13px;border-radius:8px;cursor:pointer;font-size:13.5px;white-space:nowrap;transition:.15s}
+.navbtn:hover{color:var(--txt);background:var(--pop)}
+.navbtn.active{color:var(--cyan);border-color:var(--bd);background:rgba(34,211,238,0.08)}
+main{padding:72px 18px 30px;max-width:1600px;margin:0 auto}
+section[data-view]{display:none}
+section[data-view].active{display:block;animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+/* ---------- cards & layout ---------- */
+h1{font-size:22px;margin-bottom:4px}
+h2{font-size:17px;margin:22px 0 10px;color:var(--cyan)}
+.sub{color:var(--muted);margin-bottom:18px;font-size:13px}
+.grid{display:grid;gap:14px}
+.cards4{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.cards3{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:16px;transition:.15s}
+.card:hover{border-color:rgba(34,211,238,0.4);box-shadow:0 0 18px rgba(34,211,238,0.08)}
+.card .src{margin-top:10px;font-size:11px;color:var(--muted)}
+.stat{font-size:26px;font-weight:700;color:var(--cyan);font-family:var(--mono)}
+.stat small{font-size:13px;color:var(--muted);font-weight:400}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(34,211,238,0.12);color:var(--cyan);margin:2px 4px 2px 0}
+.tag.warn{background:rgba(245,158,11,0.12);color:var(--amber)}
+.tag.danger{background:rgba(239,68,68,0.12);color:var(--red)}
+.tag.ok{background:rgba(16,185,129,0.12);color:var(--green)}
+.est{color:var(--amber);font-size:11px}
+.btn{background:rgba(34,211,238,0.12);border:1px solid var(--bd);color:var(--cyan);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;transition:.15s}
+.btn:hover{background:rgba(34,211,238,0.22)}
+.btn.solid{background:var(--cyan);color:#06202a;font-weight:600}
+.btn.solid:hover{filter:brightness(1.1)}
+.btn.warn{background:rgba(245,158,11,0.15);color:var(--amber);border-color:rgba(245,158,11,0.3)}
+.btn.danger{background:rgba(239,68,68,0.15);color:var(--red);border-color:rgba(239,68,68,0.3)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:7px 9px;border-bottom:1px solid rgba(148,163,184,0.12);text-align:left}
+th{color:var(--muted);font-weight:600}
+td.mono, .mono{font-family:var(--mono)}
+/* ---------- sim layout ---------- */
+.simwrap{display:grid;grid-template-columns:320px 1fr 300px;gap:12px;align-items:start}
+.panel{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:14px}
+.panel h3{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:12px 0 8px}
+.panel h3:first-child{margin-top:0}
+label{display:block;font-size:12px;color:var(--muted);margin:8px 0 3px}
+input[type=number],input[type=text],input[type=password],select{width:100%;background:var(--pop);border:1px solid var(--bd);color:var(--txt);border-radius:6px;padding:7px 9px;font-size:13px;font-family:var(--mono)}
+input[type=range]{width:100%}
+.row{display:flex;gap:8px;align-items:center}
+.row>*{flex:1}
+.btnrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+canvas.main{width:100%;height:640px;background:#060a14;border:1px solid var(--bd);border-radius:8px;display:block;touch-action:none;cursor:grab}
+canvas.dash{width:100%;background:var(--pop);border-radius:6px;display:block}
+.kv{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12.5px;padding:2.5px 0;border-bottom:1px dashed rgba(148,163,184,0.1);}
+.kv b{color:var(--cyan);font-weight:600}
+.light{width:14px;height:14px;border-radius:50%;display:inline-block;margin-right:7px;vertical-align:middle}
+.light.green{background:var(--green);box-shadow:0 0 10px var(--green)}
+.light.yellow{background:var(--amber);box-shadow:0 0 10px var(--amber)}
+.light.red{background:var(--red);box-shadow:0 0 10px var(--red)}
+.tl{display:flex;justify-content:space-between;gap:6px;margin:14px 0;flex-wrap:wrap}
+.tlstep{flex:1;min-width:110px;text-align:center;background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:10px 6px}
+.tlstep .n{width:26px;height:26px;border-radius:50%;background:rgba(34,211,238,0.15);color:var(--cyan);display:inline-flex;align-items:center;justify-content:center;font-weight:700;margin-bottom:6px;font-family:var(--mono)}
+.tlstep .t{font-size:12.5px}
+/* toast */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--pop);border:1px solid var(--cyan);color:var(--txt);padding:10px 18px;border-radius:8px;z-index:999;opacity:0;pointer-events:none;transition:.25s;font-size:13px}
+#toast.show{opacity:1}
+#toast.err{border-color:var(--red)}
+.filterbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+.footer-note{color:var(--muted);font-size:11.5px;margin-top:18px}
+.prog{font-family:var(--mono);font-size:12px;color:var(--muted)}
+@media (max-width:1100px){.simwrap{grid-template-columns:1fr 1fr}.col-main{grid-column:1/-1}}
+@media (max-width:760px){.simwrap{grid-template-columns:1fr}canvas.main{height:420px}nav{padding:0 8px}}
+</style>
+</head>
+<body>
+<nav>
+  <span class="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/></svg>
+    MarineDockSim
+  </span>
+  <button class="navbtn" data-nav="#dashboard">总览看板</button>
+  <button class="navbtn" data-nav="#simulation">靠泊仿真</button>
+  <button class="navbtn" data-nav="#ships">船型库</button>
+  <button class="navbtn" data-nav="#ports">港口场景</button>
+  <button class="navbtn" data-nav="#accidents">事故案例</button>
+  <button class="navbtn" data-nav="#report">报告导出</button>
+  <button class="navbtn" data-nav="#settings">设置</button>
+</nav>
+
+<main>
+<!-- ============ 总览看板 ============ -->
+<section data-view="dashboard">
+  <h1>后舷靠泊仿真系统 · 总览</h1>
+  <p class="sub">浏览器内运行的 MMG 三自由度船舶操纵仿真 · 聚焦 RoRo/RoPax 后舷靠泊（Stern Berthing）教学与方案推演</p>
+  <h2>全球海事仿真市场概览（2024）</h2>
+  <div class="grid cards4" id="mktCards"></div>
+  <h2>后舷靠泊标准流程（5 步）</h2>
+  <div class="tl" id="berthTL"></div>
+  <h2>系统能力矩阵</h2>
+  <div class="card"><table id="capTable"></table></div>
+  <div style="margin-top:18px" class="btnrow">
+    <button class="btn solid" id="btnGoSim">开始仿真</button>
+  </div>
+  <p class="footer-note">市场数据来源：Mordor Intelligence / Grand View Research / Fortune Business Insights / PW Consulting / UK Find a Tender（详见各卡片角标）。</p>
+</section>
+
+<!-- ============ 靠泊仿真 ============ -->
+<section data-view="simulation">
+  <h1>靠泊仿真</h1>
+  <p class="sub">左侧输入工况与控制量 · 中央俯视 2D 港池 · 右侧实时仪表与风险判据</p>
+  <div class="simwrap">
+    <!-- 左控制面板 -->
+    <div class="panel">
+      <h3>船舶 / 港口</h3>
+      <label>船型</label><select id="selShip"></select>
+      <label>港口场景</label><select id="selPort"></select>
+      <h3>环境</h3>
+      <div class="row">
+        <div><label>风速 (m/s, 0-30)</label><input type="number" id="inWind" min="0" max="30" step="0.5" value="8"></div>
+        <div><label>风向 (°)</label><input type="number" id="inWindDir" min="0" max="360" step="5" value="225"></div>
+      </div>
+      <div class="row">
+        <div><label>流速 (kn, 0-5)</label><input type="number" id="inCur" min="0" max="5" step="0.1" value="1.0"></div>
+        <div><label>流向 (°)</label><input type="number" id="inCurDir" min="0" max="360" step="5" value="0"></div>
+      </div>
+      <h3>初始状态</h3>
+      <div class="row">
+        <div><label>距泊位 (m)</label><input type="number" id="inD0" min="10" max="500" step="5" value="90"></div>
+        <div><label>横向偏距 (m)</label><input type="number" id="inOff" min="-100" max="100" step="5" value="0"></div>
+      </div>
+      <div class="row">
+        <div><label>初始艏向 (°)</label><input type="number" id="inPsi0" min="-30" max="30" step="1" value="0"></div>
+        <div><label>初始航速 (kn)</label><input type="number" id="inU0" min="0" max="10" step="0.5" value="2.5"></div>
+      </div>
+      <h3>控制输入（实时）</h3>
+      <label>主机油门 <span id="rpHtmlab" class="mono" style="color:var(--cyan)">40%</span></label>
+      <input type="range" id="inRPM" min="-30" max="100" step="1" value="40">
+      <label>舵角 <span id="labRudder" class="mono" style="color:var(--cyan)">0°</span></label>
+      <input type="range" id="inRudder" min="-35" max="35" step="1" value="0">
+      <label>拖轮横向推力 <span id="labTug" class="mono" style="color:var(--cyan)">0 kN</span></label>
+      <input type="range" id="inTug" min="-100" max="100" step="5" value="0">
+      <div class="btnrow">
+        <button class="btn solid" id="btnStart">开始</button>
+        <button class="btn" id="btnPause">暂停</button>
+        <button class="btn warn" id="btnReset">重置</button>
+      </div>
+      <div class="btnrow">
+        <button class="btn" id="btnSpeed">1x</button>
+        <button class="btn ok" id="btnAuto">自动靠泊：关</button>
+      </div>
+      <p class="prog" id="progInfo">t=0.0s | dt=0.05s | 倍率 1x</p>
+    </div>
+    <!-- 中央画布 -->
+    <div class="panel col-main">
+      <canvas id="cvMain" class="main"></canvas>
+      <p class="prog">鼠标拖拽平移 · 滚轮缩放 · 青色=风矢量 · 蓝色=流矢量 · 黄箭头=拖轮推力</p>
+    </div>
+    <!-- 右仪表盘 -->
+    <div class="panel">
+      <h3>实时数值</h3>
+      <div id="kvBox"></div>
+      <h3>趋势（近 60s）</h3>
+      <canvas id="cvTrend" class="dash" height="150"></canvas>
+      <h3>风险雷达（6 维）</h3>
+      <canvas id="cvRadar" class="dash" height="230"></canvas>
+      <h3>风险等级</h3>
+      <div class="card" style="padding:10px"><span id="riskDot" class="light green"></span><span id="riskText">安全</span></div>
+      <p class="prog" id="eventLog" style="margin-top:8px"></p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 船型库 ============ -->
+<section data-view="ships">
+  <h1>船型库</h1>
+  <p class="sub">三型真实船舶 · 未公开字段按 MMG 经验公式估算并标注 <span class="est">估算</span></p>
+  <div class="grid cards3" id="shipGrid"></div>
+</section>
+
+<!-- ============ 港口场景 ============ -->
+<section data-view="ports">
+  <h1>港口场景</h1>
+  <p class="sub">四个海外典型港区 · 点击卡片带入仿真</p>
+  <div class="grid cards3" id="portGrid"></div>
+</section>
+
+<!-- ============ 事故案例 ============ -->
+<section data-view="accidents">
+  <h1>事故案例库</h1>
+  <p class="sub">MAIB / NTSB / ATSB 公开调查报告 · 靠离泊与风流失控典型</p>
+  <div class="filterbar">
+    <span class="mono" style="color:var(--muted)">筛选：</span>
+    <select id="fType" style="width:auto"><option value="">全部类型</option></select>
+    <select id="fPhase" style="width:auto"><option value="">全部阶段</option></select>
+  </div>
+  <div class="grid cards3" id="accGrid"></div>
+</section>
+
+<!-- ============ 报告导出 ============ -->
+<section data-view="report">
+  <h1>仿真复盘与作业方案</h1>
+  <p class="sub">基于最近一次仿真工况生成结构化复盘；可导出 Markdown / CSV</p>
+  <div class="card" style="margin-bottom:14px"><h3 style="color:var(--cyan);margin-bottom:8px">工况摘要</h3><div id="repSummary"></div></div>
+  <div class="card" style="margin-bottom:14px"><h3 style="color:var(--cyan);margin-bottom:8px">关键极值与风险结论</h3><div id="repExtremes"></div></div>
+  <div class="card" style="margin-bottom:14px"><h3 style="color:var(--cyan);margin-bottom:8px">靠泊作业方案</h3><pre id="repPlan" style="white-space:pre-wrap;font-family:var(--mono);font-size:12.5px;color:var(--txt)">运行一次仿真后，点击「AI 生成作业方案」。</pre></div>
+  <div class="btnrow">
+    <button class="btn solid" id="btnGenPlan">AI 生成作业方案</button>
+    <button class="btn" id="btnMd">导出 Markdown</button>
+    <button class="btn" id="btnCsv">导出 CSV 时序</button>
+  </div>
+  <p class="footer-note">未配置 API Key 时由本地规则引擎生成方案；配置 Key 后调用 OpenAI 兼容接口（见「设置」）。Key 仅存本机 localStorage，绝不上传。</p>
+</section>
+
+<!-- ============ 设置 ============ -->
+<section data-view="settings">
+  <h1>设置</h1>
+  <p class="sub">AI 服务配置 · 仅保存在本机浏览器 localStorage</p>
+  <div class="card" style="max-width:560px">
+    <label>API Base URL（OpenAI 兼容）</label>
+    <input type="text" id="cfgBase" placeholder="https://api.example.com/v1">
+    <label>API Key</label>
+    <input type="password" id="cfgKey" placeholder="sk-... 仅存本机">
+    <label>模型名</label>
+    <input type="text" id="cfgModel" placeholder="gpt-4o-mini">
+    <div class="btnrow">
+      <button class="btn solid" id="btnTestConn">测试连接</button>
+      <button class="btn danger" id="btnClear">清除本地数据</button>
+    </div>
+    <p class="prog" id="connResult" style="margin-top:10px"></p>
+    <p class="footer-note">无 Key 时系统自动降级为内置规则引擎；所有请求仅发往你填写的 Base URL。</p>
+  </div>
+</section>
+</main>
+
+<div id="toast"></div>
+<script>
+"use strict";
+/* =====================================================================
+   数据常量（来源：01-市场调研报告 / 02-技术报告，逐条标注）
+   ===================================================================== */
+// 来源：报告1 Mordor Intelligence 2024=41.7亿美元、CAGR 6.63%；Grand View 窄口径2.697亿/4.2%；
+//       PW Consulting 区域份额 欧35.01/亚32.47/北美22.13；Fortune 北美2025=38.31%；
+//       UK Find a Tender Tyne Coast 招标：搬迁升级230.5万英镑、整体替换400-500万英镑。
+const MARKET_DATA = {
+  market_size_2024_usd_bn: 41.7,
+  narrow_market_2024_usd: 2.697,
+  cagr: 6.63,
+  cagr_narrow: 4.2,
+  europe_share: 35.01,
+  apac_share: 32.47,
+  na_share: 38.31,
+  simulator_cost: "整体替换 400–500 万英镑；搬迁升级 230.5 万英镑",
+  sources: [
+    "Mordor Intelligence – Marine Simulators Market",
+    "Grand View Research – Marine Driving Simulator",
+    "PW Consulting – Ship Simulator Market",
+    "Fortune Business Insights – Maritime Simulator",
+    "UK Find a Tender 030186-2026 (Tyne Coast College)"
+  ]
+};
+
+// 来源：报告2 模块2 船型主尺度表。未公开字段按 MMG 经验估算并标 estimated:true
+//   估算规则：Lpp≈0.95×LOA；型深 D≈0.055×LOA；Δ 由 GT/DWT 类比；
+//   A_R≈Lpp×d/60；桨径≈0.7×d；A_L≈Lpp×D×0.7；A_T≈B×D×0.5。
+const SHIP_LIBRARY = [
+  {
+    id:"stena", name:"Stena Estrid", type:"RoPax 客滚船",
+    LOA:214.5, Lpp:203.8, B:27.8, D:11.8, d:6.4,
+    displacement_ton:22000, power_kw:25200, service_speed_kn:22,
+    rudder_area_m2:21.8, prop_dia_m:4.48, blades:4,
+    A_T:164, A_L:1680,
+    estimated:{Lpp:true,D:true,displacement:true,rudder:true,prop:true,blades:true,A_T:true,A_L:true},
+    note:"招商局金陵威海建造 2019 交付，IMO 9807293，Holyhead–Dublin 航线。",
+    source:"MAIB / Deltamarin / CruiseMapper / Stena Line",
+    source_url:"https://www.gov.uk/maib-reports/contact-of-the-roll-on-slash-roll-off-passenger-ferry-stena-estrid-with-a-jetty-resulting-in-a-hull-puncture-and-engine-room-flooding"
+  },
+  {
+    id:"nsorla", name:"NS Orla", type:"PSV 平台供应船 (UT 776 CD)",
+    LOA:97.0, Lpp:84.918, B:20.0, D:8.2, d:8.2,
+    displacement_ton:9500, power_kw:14000, service_speed_kn:14,
+    rudder_area_m2:11.6, prop_dia_m:5.74, blades:4,
+    A_T:98, A_L:487,
+    estimated:{power:true,speed:true,rudder:true,prop:true,blades:true,A_T:true,A_L:true,displacement:true},
+    note:"Rolls-Royce UT 776 CD，DP2 动力定位，Bollard Pull 约 200 t。",
+    source:"NS Orla Technical Outline Specification PDF",
+    source_url:"https://assets-global.website-files.com/5d5458e4865d647faafd9aa8/5e0a5d087436088090ea5d29_NS%20Orla%20-%20Technical%20outline%20specification.pdf"
+  },
+  {
+    id:"megastar", name:"Megastar", type:"高速客渡轮 (LNG 动力 Fast RoPax)",
+    LOA:212.2, Lpp:201.6, B:30.6, D:12.5, d:6.5,
+    displacement_ton:35000, power_kw:50000, service_speed_kn:27,
+    rudder_area_m2:21.8, prop_dia_m:4.55, blades:4,
+    A_T:191, A_L:1764,
+    estimated:{Lpp:true,D:true,d:true,displacement:true,power:true,rudder:true,prop:true,blades:true,A_T:true,A_L:true},
+    note:"Meyer Turku 2017 交付，爱沙尼亚旗，Helsinki–Tallinn，LNG 双燃料。",
+    source:"Tallink / Tallink Factsheet 2025",
+    source_url:"https://www.tallink.com/en/on-board/fleet/megastar"
+  }
+];
+
+// 来源：报告2 模块4 海外港口泊位场景表。走向/设计速度/护舷型号未公开，按 PIANC 经验取值并标 estimated
+const PORT_LIBRARY = [
+  {
+    id:"rtm", name:"Rotterdam Europoort / Maasvlakte", country:"荷兰",
+    berth:"ECT Delta 滚装/集装箱区", heading_deg:150, length_m:4000, depth_m:16.65,
+    fender:"大型橡胶护舷（型号未公开）", design_speed_ms:0.18, current_kn:1.5, wind_dir:"SW",
+    estimated:{heading:true,design_speed:true,fender:true,current:true,wind:true},
+    note:"欧洲最大 RoRo/集装箱港区，24h 全天候，Maasvlakte 水深最大 20m。",
+    source:"Port of Rotterdam / ECT Delta",
+    source_url:"https://www.portofrotterdam.com/en/why-rotterdam/smart-link-your-supply-chain"
+  },
+  {
+    id:"ham", name:"Hamburg Hansaport", country:"德国",
+    berth:"Hansahafen 散货/滚装码头 (4 泊位)", heading_deg:135, length_m:760, depth_m:15.1,
+    fender:"大型橡胶护舷（型号未公开）", design_speed_ms:0.22, current_kn:2.0, wind_dir:"W",
+    estimated:{heading:true,design_speed:true,fender:true},
+    note:"易北河上游，乘潮进港水深 15.1m，最大接纳 390m LOA / 45m 船宽。",
+    source:"Hafen Hamburg / HPA Port Info Guide",
+    source_url:"https://www.hafen-hamburg.de/en/address/hansaport-hafenbetriebsgesellschaft-mbh-7950/"
+  },
+  {
+    id:"sot", name:"Southampton Berth 38–39", country:"英国",
+    berth:"ABP 东部码头 渡轮/客滚泊位", heading_deg:200, length_m:360, depth_m:10.5,
+    fender:"横滨式充气护舷 6.5m×3.3m", design_speed_ms:0.18, current_kn:1.5, wind_dir:"SW",
+    estimated:{heading:true,design_speed:true,current:true,wind:true},
+    note:"双潮(double tide)港池，主要渡轮泊位，配 Yokohama 充气护舷。",
+    source:"ABP / ISS UK Cruise Ports Handbook",
+    source_url:"https://www.abports.co.uk/locations/southampton"
+  },
+  {
+    id:"lax", name:"Los Angeles Terminal Island RoRo", country:"美国",
+    berth:"Terminal Island 滚装泊位区", heading_deg:90, length_m:null, depth_m:9.8,
+    fender:"大型橡胶护舷（型号未公开）", design_speed_ms:0.18, current_kn:1.5, wind_dir:"NW",
+    estimated:{heading:true,length:true,design_speed:true,fender:true,current:true},
+    note:"水深约 9.8m（32.3 ft），主服务滚装汽车运输船；全港 50 泊位共 14,970m。",
+    source:"Findaport / BNSP Port of LA",
+    source_url:"https://www.findaport.com/port-of-los-angeles"
+  }
+];
+
+// 来源：报告2 模块5 真实事故（MAIB×2 / NTSB×1 / ATSB×1）
+const ACCIDENT_CASES = [
+  {
+    id:"stena2026", date:"2026-01-07", ship:"Stena Estrid", type:"RoPax 客滚船", phase:"靠泊（后舷靠泊 backing-in）",
+    port:"英国 Holyhead 港 Terminal 3",
+    summary:"船由 Dublin 抵 Holyhead，码头北侧回转后左舷靠泊时，船艏右舷机舱区撞上 Terminal 3 北端无护舷回转墩（turning fender），水线以下被刺穿，右机舱进水约 500 t。当时西风 6–7 级（10–17 m/s），拖轮位于左后舷侧。",
+    cause:"强西风吹向码头，船对码头关闭速度过快；拖轮位置不当（左后舷）反增碰撞力；回转墩无橡胶护舷且有尖锐突出物；船岸通信冲突。",
+    loss:"无人员伤亡；约 500 t 进水；临时修理后赴 Liverpool 干坞；码头关闭至当日晚。",
+    url:"https://www.gov.uk/maib-reports/contact-of-the-roll-on-slash-roll-off-passenger-ferry-stena-estrid-with-a-jetty-resulting-in-a-hull-puncture-and-engine-room-flooding",
+    tags:["高速接近","风流叠加","拖轮位置不当"]
+  },
+  {
+    id:"alika2022", date:"2022-10-25", ship:"Ali Ka", type:"油化船 (Oil/Chemical Tanker)", phase:"离泊（departure）",
+    port:"英国泰晤士河 Canvey Island Oikos Jetty 2",
+    summary:"马耳他旗油化船无拖轮协助下离泊，PL A 强制引航。0436 船尾方向失控，船艏撞上 Jetty 2 最西段后搁浅。码头严重损坏，11 个月才恢复事故前产能。",
+    cause:"引航员计划缺失关键信息、文件不一致；未配拖轮；引航员高度疑似严重疲劳；master-pilot exchange 无效；COMAH 高风险泊位风险评估不足。",
+    loss:"无人员伤亡、无污染；船体轻微损伤，COMAH 级码头停业 11 个月。",
+    url:"https://www.gov.uk/maib-reports/contact-with-oikos-jetty-2-by-chemical-tanker-ali-ka",
+    tags:["无拖轮协助","引航员疲劳","离泊失控"]
+  },
+  {
+    id:"shandong2018", date:"2018-04-06", ship:"Shandong Fu En", type:"散货船 (Bulk Carrier)", phase:"离泊/掉头（unberthing & turning）",
+    port:"美国 Lower Mississippi, Ergon-St. James Terminal Dock 1",
+    summary:"满载煤散货船（LOA 229m，吃水 13.4m）高水位下由 3 拖轮协助掉头，引航员计划左转 162°。0637 船艏撞码头系缆墩，水线以下 1 条裂缝及 3 个破孔，艏尖舱进水。当时流速约 4.7 kn。",
+    cause:"引航员疲劳（36h 仅睡 4h）；高水位急流条件下掉头机动判断失误；拖轮位置与倒车指令可更早执行。",
+    loss:"船体修理约 25 万美元，码头系缆墩与步道约 600 万美元，总损失约 625 万美元。",
+    url:"https://www.ntsb.gov/investigations/AccidentReports/Reports/MAB1914.pdf",
+    tags:["高流速(4.7kn)","掉头失控","引航员疲劳"]
+  },
+  {
+    id:"madang2015", date:"2015-11-16", ship:"Madang Coast", type:"杂货船 (General Cargo, 105m)", phase:"靠泊（berthing）",
+    port:"澳大利亚 Townsville 港 Berth 10",
+    summary:"船以约 1.8 kn 接近速度右舷靠泊，首倒缆首次带桩后滑脱；船艉被 CPP 倒车左旋效应及北风(11–16kn)推离码头，最终船艏撞上 Berth 10 岸端，左后舷与 Lynda Victory 轻触。",
+    cause:"首倒缆双系缆桩仅绕两圈且人力握持，受力滑脱；靠泊速度偏高(1.8kn)；代理未经船长同意取消拖轮；无应急程序文档；北风叠加倒车侧偏。",
+    loss:"无人员伤亡；两船外壳划痕与小凹陷，码头边缘轻微损伤。",
+    url:"https://www.atsb.gov.au/publications/investigation_reports/2015/mair/323-mo-2015-007",
+    tags:["靠泊速度偏高(1.8kn)","首缆滑脱","风流叠加"]
+  }
+];
+
+// 来源：报告2 模块3 PIANC WG211 / OCIMF MEG4 / 港口作业惯例
+const SAFETY_THRESHOLDS = {
+  normal_approach_ms: { roro:0.18, ferry:0.18, psv:0.15, tanker:0.12, bulk:0.22 },
+  transverse_ms: 0.25,        // 末期切向 ≤0.5kn≈0.25m/s
+  yaw_rate_dps: 0.5,           // 末期艏摇角速度
+  wind_limit_ms: 10,           // 持续风速上限(≈20kn)
+  wind_gust_ms: 12.5,          // 阵风上限
+  current_limit_kn: 2.0,       // 持续流速上限
+  min_approach_ms: 0.05,       // OCIMF MEG4 最低靠泊速度
+  source: "PIANC WG211 (2024) / OCIMF MEG4 (2018) / 引航员作业惯例综合"
+};
+
+/* =====================================================================
+   MMG 三自由度仿真引擎（纵荡/横荡/艏摇） · RK4 · dt=0.05s
+   运动方程按 BUILD-SPEC §4.2；附加质量按报告2 §1.5 质量比经验取值。
+   ===================================================================== */
+const RHO = 1025, RHO_A = 1.225;
+const DT = 0.05;
+const DEG = Math.PI/180;
+
+const fin = (x) => (typeof x === "number" && isFinite(x)) ? x : 0;
+const clamp = (x,a,b) => Math.min(b, Math.max(a, x));
+const normPi = (a) => { while(a>Math.PI) a-=2*Math.PI; while(a<-Math.PI) a+=2*Math.PI; return a; };
+
+const SIM = {
+  ship: SHIP_LIBRARY[0], port: PORT_LIBRARY[0],
+  wind:{ms:8,dir:225}, cur:{kn:1.0,dir:0},
+  // 状态
+  s:{u:0,v:0,r:0,x:0,y:0,psi:0},
+  // 控制
+  throttle:0.4, rudder_deg:0, tug_kN:0,
+  // 派生质量
+  m:1, mx:0, my:0, Mu:1, My:1, Mz:1, Iz:1,
+  Cxu:0, Yv:0, Yvvv:0, Nv:0, Nr:0, n_max:5,
+  // 运行
+  t:0, running:false, speedMul:1, auto:false,
+  trace:[], extremes:null, phase:"init", berthDone:false,
+  lastVn:0, lastDyDt:0, eventMsg:"",
+  D:0, Lpp:0, B:0, AR:0, A_T:0, A_L:0
+};
+
+function buildShipDynamics(){
+  const sh = SIM.ship;
+  const m = sh.displacement_ton*1000;
+  const Lpp = sh.Lpp, B = sh.B, d = sh.d;
+  SIM.Lpp=Lpp; SIM.B=B; SIM.D=sh.d; SIM.AR=sh.rudder_area_m2;
+  SIM.A_T=sh.A_T; SIM.A_L=sh.A_L;
+  const mx = m*0.10, my = m*0.85;                 // 报告2 §1.5 质量比经验
+  const Iz = m/12*(Lpp*Lpp+B*B), Jz = Iz*0.15;
+  SIM.m=m; SIM.mx=mx; SIM.my=my;
+  SIM.Mu=m+mx; SIM.My=m+my; SIM.Iz=Iz; SIM.Mz=Iz+Jz;
+  SIM.Cxu = 0.5*RHO*Lpp*d*0.9;
+  SIM.Yv  = (m+my)/40;          // 横荡线性阻尼，时间常数~40s
+  SIM.Yvvv= (m+my)*2.0;
+  SIM.Nv  = -SIM.Yv*Lpp*0.08;
+  SIM.Nr  = (Iz+Jz)/25;         // 艏摇阻尼，时间常数~25s
+  // 自航要素：由服务航速阻力反算 n_max，使车叶在自由航行时推力≈阻力
+  const vs = sh.service_speed_kn*0.5144;
+  const R0 = SIM.Cxu*vs*vs;
+  const T0 = R0*1.5;
+  const Dp = sh.prop_dia_m;
+  SIM.n_max = Math.sqrt(T0/(RHO*Dp*Dp*Dp*Dp*0.4)) || 5;
+  SIM.propD = Dp;
+}
+
+// 环境→随船坐标系（berth-aligned world: x=沿泊位, y=向海）
+function envBody(psi){
+  const cw = SIM.wind.ms*Math.sin(SIM.wind.dir*DEG), sw = SIM.wind.ms*Math.cos(SIM.wind.dir*DEG);
+  const Vwx=cw, Vwy=sw;
+  const uw = Vwx*Math.cos(psi)+Vwy*Math.sin(psi);
+  const vw = -Vwx*Math.sin(psi)+Vwy*Math.cos(psi);
+  const vc = SIM.cur.kn*0.5144;
+  const Ucx = vc*Math.sin(SIM.cur.dir*DEG), Ucy = vc*Math.cos(SIM.cur.dir*DEG);
+  const u_c = Ucx*Math.cos(psi)+Ucy*Math.sin(psi);
+  const v_c = -Ucx*Math.sin(psi)+Ucy*Math.cos(psi);
+  return {uw,vw,u_c,v_c,Vw:SIM.wind.ms};
+}
+
+// 计算合力/合力矩，返回 body 系 {X,Y,N} 与分项（用于仪表盘）
+function forces(st, env){
+  const {uw,vw,u_c,v_c,Vw} = env;
+  const u_rel = st.u - u_c, v_rel = st.v - v_c;
+  const Lpp=SIM.Lpp;
+  // 裸船体（用相对水流速度，流载荷自然折算入内）
+  const X_H = -SIM.Cxu*u_rel*Math.abs(u_rel);
+  const Y_H = -(SIM.Yv*v_rel + SIM.Yvvv*v_rel*Math.abs(v_rel));
+  const N_H = -(SIM.Nv*v_rel + SIM.Nr*st.r + SIM.Nv*Lpp*0.5*v_rel*Math.abs(v_rel));
+  // 螺旋桨
+  const n = SIM.n_max*SIM.throttle;
+  const Dp = SIM.propD;
+  let Kt=0;
+  if(Math.abs(n)>1e-4){
+    const J = (1-0.3)*Math.max(u_rel,0)/(Math.abs(n)*Dp);
+    Kt = clamp(0.4*(1-J/0.8), -0.35, 0.55);
+    if(n<0) Kt = -0.55*Math.abs(n)/Math.abs(n);
+  }
+  const X_P = RHO*n*Math.abs(n)*Dp*Dp*Dp*Dp*Kt;
+  // 舵
+  const delta = SIM.rudder_deg*DEG;
+  const vR = Math.max(Math.abs(u_rel)*0.8, 0.4) + Math.max(n,0)*Dp*2.0;
+  const FN = 0.5*RHO*SIM.AR*vR*vR*2.5*Math.sin(delta);
+  const Y_R = -FN*Math.cos(delta);
+  const X_R = -FN*Math.sin(delta)*0.25*Math.sign(u_rel||1);
+  const N_R = (-Lpp/2)*Y_R;
+  // 风
+  const betaW = Math.atan2(vw, uw);
+  const cw2 = 0.5*RHO_A*Vw*Vw;
+  const F_Wx = cw2*0.8*Math.cos(betaW)*SIM.A_T;
+  const F_Wy = cw2*1.1*Math.sin(betaW)*Math.abs(Math.sin(betaW))*SIM.A_L;
+  const N_W  = cw2*Lpp*SIM.A_L*0.002*Math.sin(betaW);
+  // 拖轮（作用于船尾 0.3Lpp 处）
+  const F_yT = SIM.tug_kN*1000;
+  const N_T = (-Lpp*0.3)*F_yT;
+  return {
+    X:X_H+X_P+X_R+F_Wx, Y:Y_H+Y_R+F_Wy+F_yT, N:N_H+N_R+N_W+N_T,
+    parts:{X_H,X_P,X_R,F_Wx,F_Wy,N_H,Y_H,Y_R,F_Wy,F_yT}
+  };
+}
+
+function deriv(st){
+  const env = envBody(st.psi);
+  const f = forces(st, env);
+  let du = f.X/SIM.Mu + (SIM.My/SIM.Mu)*st.v*st.r;
+  let dv = f.Y/SIM.My - (SIM.Mu/SIM.My)*st.u*st.r;
+  let dr = f.N/SIM.Mz;
+  du=fin(du); dv=fin(dv); dr=fin(dr);
+  // 运动学
+  const dx = st.u*Math.cos(st.psi)-st.v*Math.sin(st.psi);
+  const dy = st.u*Math.sin(st.psi)+st.v*Math.cos(st.psi);
+  return {du,dv,dr,dx,dy,dpsi:st.r, parts:f.parts, env};
+}
+
+function rk4Step(dt){
+  const s0 = SIM.s;
+  const a = deriv(s0);
+  const s1 = {u:s0.u+ a.du*dt/2, v:s0.v+a.dv*dt/2, r:s0.r+a.dr*dt/2, psi:s0.psi};
+  const b = deriv(s1);
+  const s2 = {u:s0.u+ b.du*dt/2, v:s0.v+b.dv*dt/2, r:s0.r+b.dr*dt/2, psi:s0.psi};
+  const c = deriv(s2);
+  const s3 = {u:s0.u+ c.du*dt, v:s0.v+c.dv*dt, r:s0.r+c.dr*dt, psi:s0.psi};
+  const d = deriv(s3);
+  const dd = (p)=> (a[p]+2*b[p]+2*c[p]+d[p])/6;
+  let nu = s0.u+dd("du")*dt, nv=s0.v+dd("dv")*dt, nr=s0.r+dd("dr")*dt;
+  // 数值鲁棒：非有限值重置并告警
+  if(!isFinite(nu)){console.warn("u reset"); nu=0;}
+  if(!isFinite(nv)){console.warn("v reset"); nv=0;}
+  if(!isFinite(nr)){console.warn("r reset"); nr=0;}
+  nu=clamp(nu,-10,10); nv=clamp(nv,-4,4); nr=clamp(nr,-0.4,0.4);
+  const dx=(a.dx+b.dx+c.dx+d.dx)/6, dy=(a.dy+b.dy+c.dy+d.dy)/6;
+  const ns = {
+    u:nu, v:nv, r:nr,
+    x:s0.x+dx*dt, y:s0.y+dy*dt,
+    psi:normPi(s0.psi+nr*dt)
+  };
+  SIM.lastDyDt = dy;
+  SIM.s = ns;
+  SIM._parts = a.parts;
+  return a.parts;
+}
+
+// 靠泊事件检测
+function berthCheck(){
+  const clr = SIM.s.y - SIM.B/2;          // 船舷距码头法向距离
+  const vn = -SIM.lastDyDt;               // 正=靠近码头
+  SIM.lastVn = vn;
+  const E = 0.5*(SIM.m+SIM.my)*vn*vn*0.7; // 护舷能量(含偏心系数0.7) J
+  if(clr<=0.6 && vn>0.001){
+    if(vn < 0.06 && !SIM.berthDone){
+      SIM.berthDone=true; SIM.phase="success";
+      SIM.eventMsg = "✓ 靠泊成功 · 法向速度 "+vn.toFixed(3)+" m/s";
+    } else if(!SIM.berthDone){
+      SIM.berthDone=true; SIM.phase="collision";
+      SIM.eventMsg = "✗ 碰撞/危险靠泊 · 法向速度 "+vn.toFixed(3)+" m/s · 护舷能量 "+(E/1000).toFixed(1)+" kJ";
+    }
+  }
+  if(vn>0) SIM.extremes.fenderE = Math.max(SIM.extremes.fenderE, E/1000);
+  SIM.extremes.maxVn = Math.max(SIM.extremes.maxVn, Math.abs(vn));
+  SIM.extremes.maxV  = Math.max(SIM.extremes.maxV, Math.abs(SIM.s.v));
+  SIM.extremes.maxYaw= Math.max(SIM.extremes.maxYaw, Math.abs(SIM.s.r)*57.3);
+}
+
+// 自动靠泊规则引擎（BUILD-SPEC §4.5）
+function autoControl(){
+  const s = SIM.s;
+  const clr = s.y - SIM.B/2;
+  const vn = -(s.u*Math.sin(s.psi)+s.v*Math.cos(s.psi));
+  // 近距离分段减速
+  let vt = 0.15;
+  if(clr<8) vt = 0.15*clr/8;
+  if(clr<0.8) vt = 0;
+  // 拖轮闭环修正法向接近速度
+  let tug = clamp((vt-vn)*1200, -100, 100);
+  // 沿船减速至近零
+  let thr = Math.abs(s.u)>0.4 ? -0.12 : 0;
+  // 舵角保持航向平行泊位
+  let delta = clamp(2.5*s.psi + 10*s.r, -0.6, 0.6)/DEG;
+  SIM.throttle = thr; SIM.rudder_deg = delta; SIM.tug_kN = tug;
+  // 同步到滑块 UI
+  const elRpm=document.getElementById("inRPM"), elR=document.getElementById("inRudder"), elT=document.getElementById("inTug");
+  if(elRpm) elRpm.value = Math.round(thr*100);
+  if(elR) elR.value = Math.round(delta);
+  if(elT) elT.value = Math.round(tug);
+  syncSliderLabels();
+}
+
+function resetSim(){
+  const d0 = parseFloat(document.getElementById("inD0").value)||90;
+  const off = parseFloat(document.getElementById("inOff").value)||0;
+  const psi0 = (parseFloat(document.getElementById("inPsi0").value)||0)*DEG;
+  const u0 = (parseFloat(document.getElementById("inU0").value)||0)*0.5144;
+  buildShipDynamics();
+  SIM.s = {u:u0, v:0, r:0, x:off, y:d0+SIM.B/2, psi:psi0};
+  SIM.t=0; SIM.berthDone=false; SIM.phase="init";
+  SIM.eventMsg=""; SIM.trace=[]; SIM.lastDyDt=0; SIM.lastVn=0;
+  SIM.extremes={maxVn:0,maxV:0,maxYaw:0,maxWindK:0,maxCurK:0,fenderE:0,maxTug:0};
+  SIM.throttle=0.4; SIM.rudder_deg=0; SIM.tug_kN=0;
+  SIM.auto=false;
+  document.getElementById("btnAuto").textContent="自动靠泊：关";
+}
+
+/* =====================================================================
+   渲染层：主视图 / 趋势 / 雷达 · 路由 · 列表视图
+   ===================================================================== */
+const CAM = {x:0, y:55, zoom:3.2};   // world 坐标像素缩放
+const TRAIL = [];
+
+function dprCanvas(cv){
+  const dpr = window.devicePixelRatio||1;
+  const r = cv.getBoundingClientRect();
+  cv.width = Math.max(200, r.width*dpr);
+  cv.height = Math.max(150, (cv.id==="cvMain"?r.height:parseFloat(cv.getAttribute("height")||150))*dpr);
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return {ctx, w:r.width, h:(cv.id==="cvMain"?r.height:parseFloat(cv.getAttribute("height")||150))};
+}
+function w2s(wx,wy,vp){
+  return { x: (wx-CAM.x)*CAM.zoom+vp.w/2, y: (wy-CAM.y)*CAM.zoom+vp.h/2 };
+}
+
+function drawMain(){
+  const cv=document.getElementById("cvMain"); if(!cv) return;
+  const {ctx,w,h}=dprCanvas(cv);
+  ctx.fillStyle="#060a14"; ctx.fillRect(0,0,w,h);
+  const z=CAM.zoom;
+  // 安全区（近码头 0~25m 水侧）
+  let a=w2s(-600,0,{w,h}), b=w2s(600,25,{w,h});
+  ctx.fillStyle="rgba(16,185,129,0.06)"; ctx.fillRect(a.x, a.y, b.x-a.x, b.y-a.y);
+  // 航道边界虚线
+  ctx.strokeStyle="rgba(148,163,184,0.25)"; ctx.setLineDash([8,8]); ctx.lineWidth=1;
+  let l1=w2s(-600,120,{w,h}), l2=w2s(600,120,{w,h});
+  ctx.beginPath(); ctx.moveTo(l1.x,l1.y); ctx.lineTo(l2.x,l2.y); ctx.stroke();
+  ctx.setLineDash([]);
+  // 码头线
+  let q1=w2s(-600,0,{w,h}), q2=w2s(600,0,{w,h});
+  ctx.strokeStyle="#64748b"; ctx.lineWidth=5;
+  ctx.beginPath(); ctx.moveTo(q1.x,q1.y); ctx.lineTo(q2.x,q2.y); ctx.stroke();
+  // 护舷方块
+  ctx.fillStyle="#f59e0b";
+  for(let fx=-500; fx<=500; fx+=50){
+    const p=w2s(fx,0,{w,h});
+    ctx.fillRect(p.x-4, p.y-3, 8, 6);
+  }
+  // 尾迹
+  ctx.strokeStyle="rgba(34,211,238,0.25)"; ctx.lineWidth=1.5; ctx.beginPath();
+  for(let i=0;i<TRAIL.length;i++){
+    const p=w2s(TRAIL[i].x,TRAIL[i].y,{w,h});
+    i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y);
+  }
+  ctx.stroke();
+  // 船舶
+  const s=SIM.s, L=SIM.Lpp, B=SIM.B;
+  const sp=w2s(s.x,s.y,{w,h});
+  ctx.save(); ctx.translate(sp.x,sp.y); ctx.rotate(s.psi);
+  ctx.strokeStyle="#22d3ee"; ctx.lineWidth=2; ctx.fillStyle="rgba(34,211,238,0.12)";
+  ctx.beginPath();
+  ctx.rect(-L/2*z/1, -B/2*z/1, L*z, B*z);
+  ctx.fill(); ctx.stroke();
+  // 船首三角
+  ctx.fillStyle="#22d3ee";
+  ctx.beginPath(); ctx.moveTo(L/2*z,0); ctx.lineTo(L/2*z-B*z*0.25, B*z*0.3); ctx.lineTo(L/2*z-B*z*0.25,-B*z*0.3); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  // 风矢量（从船位指向风吹去向，青色）
+  const wx=SIM.wind.ms*Math.sin(SIM.wind.dir*DEG), wy=SIM.wind.ms*Math.cos(SIM.wind.dir*DEG);
+  drawArrow(ctx, sp.x, sp.y, wx*3.5, wy*3.5, "#22d3ee", "风"+SIM.wind.ms.toFixed(1)+"m/s");
+  // 流矢量（蓝色）
+  const cv2=SIM.cur.kn*0.5144*6;
+  const cxv=cv2*Math.sin(SIM.cur.dir*DEG), cyv=cv2*Math.cos(SIM.cur.dir*DEG);
+  drawArrow(ctx, sp.x, sp.y+18, cxv, cyv, "#60a5fa", "流"+SIM.cur.kn.toFixed(1)+"kn");
+  // 拖轮推力（黄色）
+  if(Math.abs(SIM.tug_kN)>1){
+    drawArrow(ctx, sp.x, sp.y, -SIM.tug_kN*0.4, 0, "#f59e0b", SIM.tug_kN.toFixed(0)+"kN");
+  }
+  // 距泊位标注
+  const clr=s.y-B/2;
+  ctx.fillStyle="#e2e8f0"; ctx.font="12px Consolas,monospace";
+  ctx.fillText("距泊位法向: "+clr.toFixed(1)+" m", 12, 22);
+  // 比例尺
+  const refM=50, refPx=refM*z;
+  ctx.strokeStyle="#94a3b8"; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(16,h-20); ctx.lineTo(16+refPx,h-20); ctx.stroke();
+  ctx.fillStyle="#94a3b8"; ctx.fillText(refM+" m", 16, h-26);
+  // 指北针
+  ctx.strokeStyle="#22d3ee"; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(w-34,40); ctx.lineTo(w-34,64); ctx.lineTo(w-30,56); ctx.moveTo(w-34,64); ctx.lineTo(w-38,56); ctx.stroke();
+  ctx.fillStyle="#22d3ee"; ctx.font="11px Consolas,monospace"; ctx.fillText("N", w-39, 34);
+  // 事件提示
+  if(SIM.eventMsg){
+    ctx.font="bold 14px Consolas,monospace";
+    ctx.fillStyle = SIM.phase==="success"?"#10b981":"#ef4444";
+    ctx.fillText(SIM.eventMsg, 12, 44);
+  }
+}
+function drawArrow(ctx,x,y,dx,dy,color,label){
+  const len=Math.hypot(dx,dy); if(len<2) return;
+  ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=1.8;
+  ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+dx,y+dy); ctx.stroke();
+  const a=Math.atan2(dy,dx);
+  ctx.beginPath(); ctx.moveTo(x+dx,y+dy);
+  ctx.lineTo(x+dx-7*Math.cos(a-0.4), y+dy-7*Math.sin(a-0.4));
+  ctx.lineTo(x+dx-7*Math.cos(a+0.4), y+dy-7*Math.sin(a+0.4));
+  ctx.closePath(); ctx.fill();
+  ctx.font="10px Consolas,monospace"; ctx.fillText(label, x+dx+4, y+dy);
+}
+
+function drawTrend(){
+  const cv=document.getElementById("cvTrend"); if(!cv) return;
+  const {ctx,w,h}=dprCanvas(cv);
+  ctx.fillStyle="#1e293b"; ctx.fillRect(0,0,w,h);
+  const N=SIM.trace.length;
+  if(N<2){ ctx.fillStyle="#64748b"; ctx.font="11px Consolas,monospace"; ctx.fillText("等待数据…",10,h/2); return; }
+  const t0=SIM.trace[0].t, t1=SIM.trace[N-1].t;
+  const X=(t)=> 8+(t-t0)/(Math.max(t1-t0,1))*(w-16);
+  const series=[
+    {k:"spd", c:"#22d3ee", mn:0, mx:3},
+    {k:"v",   c:"#10b981", mn:-0.5, mx:0.5},
+    {k:"psi", c:"#f59e0b", mn:-10,  mx:10}
+  ];
+  for(const s of series){
+    ctx.strokeStyle=s.c; ctx.lineWidth=1.4; ctx.beginPath();
+    for(let i=0;i<N;i++){
+      const r=SIM.trace[i];
+      const v=r[s.k]; const Y= h-6-(v-s.mn)/(s.mx-s.mn)*(h-14);
+      i?ctx.lineTo(X(r.t),Y):ctx.moveTo(X(r.t),Y);
+    }
+    ctx.stroke();
+  }
+  ctx.fillStyle="#64748b"; ctx.font="9px Consolas,monospace";
+  ctx.fillText("蓝=航速kn 绿=横移m/s 黄=艏向°",8,h-3);
+}
+
+function radarDims(){
+  const vn=Math.abs(SIM.lastVn), vt=Math.abs(SIM.s.v), yw=Math.abs(SIM.s.r)*57.3;
+  const Eref=0.5*SIM.m*0.18*0.18*0.7/1000;
+  const Elive=SIM.extremes?SIM.extremes.fenderE:0;
+  return [
+    clamp(vn/0.18,0,1),
+    clamp(vt/0.25,0,1),
+    clamp(yw/0.5,0,1),
+    clamp(SIM.wind.ms/10,0,1),
+    clamp(SIM.cur.kn/2.0,0,1),
+    clamp(Elive/Eref,0,1)
+  ];
+}
+function drawRadar(){
+  const cv=document.getElementById("cvRadar"); if(!cv) return;
+  const {ctx,w,h}=dprCanvas(cv);
+  ctx.fillStyle="#1e293b"; ctx.fillRect(0,0,w,h);
+  const cx=w/2, cy=h/2+4, R=Math.min(w,h)/2-26;
+  const dims=radarDims(), labels=["法向","横移","艏摇","风","流","护舷"];
+  ctx.strokeStyle="rgba(148,163,184,0.3)"; ctx.lineWidth=1;
+  for(let g=1;g<=4;g++){
+    ctx.beginPath();
+    for(let i=0;i<=6;i++){
+      const a=-Math.PI/2+i*Math.PI/3;
+      const rr=R*g/4;
+      const px=cx+Math.cos(a)*rr, py=cy+Math.sin(a)*rr;
+      i?ctx.lineTo(px,py):ctx.moveTo(px,py);
+    }
+    ctx.stroke();
+  }
+  ctx.fillStyle="rgba(239,68,68,0.15)"; ctx.strokeStyle="rgba(239,68,68,0.5)";
+  ctx.beginPath();
+  for(let i=0;i<=6;i++){ const a=-Math.PI/2+i*Math.PI/3; const px=cx+Math.cos(a)*R, py=cy+Math.sin(a)*R; i?ctx.lineTo(px,py):ctx.moveTo(px,py);}
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  // 数据多边形
+  ctx.fillStyle="rgba(34,211,238,0.3)"; ctx.strokeStyle="#22d3ee"; ctx.lineWidth=1.8;
+  ctx.beginPath();
+  for(let i=0;i<6;i++){
+    const a=-Math.PI/2+i*Math.PI/3;
+    const px=cx+Math.cos(a)*R*dims[i], py=cy+Math.sin(a)*R*dims[i];
+    i?ctx.lineTo(px,py):ctx.moveTo(px,py);
+  }
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle="#94a3b8"; ctx.font="10px Consolas,monospace";
+  for(let i=0;i<6;i++){
+    const a=-Math.PI/2+i*Math.PI/3;
+    ctx.fillText(labels[i], cx+Math.cos(a)*(R+12)-10, cy+Math.sin(a)*(R+12)+3);
+  }
+}
+
+function riskLevel(){
+  const d=radarDims(); const m=Math.max.apply(null,d);
+  if(m<0.5) return {lvl:"安全", cls:"green"};
+  if(m<0.8) return {lvl:"注意", cls:"yellow"};
+  return {lvl:"危险", cls:"red"};
+}
+
+function renderDash(){
+  // 市场卡片
+  const box=document.getElementById("mktCards"); box.textContent="";
+  const cards=[
+    {v:"$41.7亿", s:"2024 全球海事模拟器市场", src:"Mordor Intelligence"},
+    {v:"6.63%", s:"2025–2030 CAGR（窄口径操纵类 4.2%）", src:"Mordor / Grand View"},
+    {v:"欧35.0% / 亚32.5%", s:"区域份额（北美约38%最大）", src:"PW Consulting / Fortune BI"},
+    {v:"400–500万£", s:"全任务驾驶台单套整体替换造价", src:"UK Find a Tender (Tyne Coast)"}
+  ];
+  cards.forEach(c=>{
+    const d=document.createElement("div"); d.className="card";
+    const st=document.createElement("div"); st.className="stat"; st.textContent=c.v;
+    const p=document.createElement("p"); p.style.margin="6px 0 0"; p.textContent=c.s;
+    const s=document.createElement("div"); s.className="src"; s.textContent="来源: "+c.src;
+    d.appendChild(st); d.appendChild(p); d.appendChild(s); box.appendChild(d);
+  });
+  // 5 步时间轴
+  const tl=document.getElementById("berthTL"); tl.textContent="";
+  ["进港减速","调整艏向","尾端对准泊位延长线","低速贴靠护舷","带缆固定"].forEach((t,i)=>{
+    const e=document.createElement("div"); e.className="tlstep";
+    const n=document.createElement("span"); n.className="n"; n.textContent=(i+1);
+    const tt=document.createElement("div"); tt.className="t"; tt.textContent=t;
+    e.appendChild(n); e.appendChild(tt); tl.appendChild(e);
+  });
+  // 能力矩阵
+  const ct=document.getElementById("capTable"); ct.textContent="";
+  const rows=[
+    ["MMG 三自由度模型","纵荡/横荡/艏摇，RK4 积分 dt=0.05s"],
+    ["环境载荷","风（A_T/A_L 系数）+ 流（相对来流阻尼）"],
+    ["推进与操纵","螺旋桨推力曲线 + 双转角舵力"],
+    ["拖轮推力","左右向 0–100 kN，船尾作用点"],
+    ["风险雷达","法向/横移/艏摇/风/流/护舷能量 6 维"],
+    ["报告导出","Markdown 复盘 + CSV 时序 + AI 作业方案"]
+  ];
+  rows.forEach(r=>{
+    const tr=document.createElement("tr");
+    const a=document.createElement("td"); a.innerHTML="<b>"+r[0]+"</b>"; a.style.color="var(--cyan)";
+    const b=document.createElement("td"); b.textContent=r[1];
+    tr.appendChild(a); tr.appendChild(b); ct.appendChild(tr);
+  });
+}
+
+function estTag(){ const s=document.createElement("span"); s.className="est"; s.textContent="[估算]"; return s; }
+
+function renderShips(){
+  const g=document.getElementById("shipGrid"); g.textContent="";
+  SHIP_LIBRARY.forEach(sh=>{
+    const d=document.createElement("div"); d.className="card";
+    const nm=document.createElement("h3"); nm.textContent=sh.name; nm.style.color="var(--cyan)"; nm.style.marginBottom="2px";
+    const ty=document.createElement("span"); ty.className="tag"; ty.textContent=sh.type;
+    d.appendChild(nm); d.appendChild(ty);
+    const t=document.createElement("table");
+    const rows=[
+      ["LOA / Lpp", sh.LOA+" / "+sh.Lpp.toFixed(1)+" m"],
+      ["型宽 B / 吃水 d", sh.B+" / "+sh.d+" m"],
+      ["排水量 Δ", sh.displacement_ton+" t"],
+      ["主机功率", sh.power_kw.toLocaleString()+" kW"],
+      ["服务航速", sh.service_speed_kn+" kn"],
+      ["舵面积 / 桨径", sh.rudder_area_m2+" m² / "+sh.prop_dia_m+" m"],
+      ["受风 A_T/A_L", sh.A_T+" / "+sh.A_L+" m²"]
+    ];
+    rows.forEach((r,i)=>{
+      const tr=document.createElement("tr");
+      const a=document.createElement("td"); a.textContent=r[0];
+      const b=document.createElement("td"); b.className="mono"; b.textContent=r[1];
+      tr.appendChild(a); tr.appendChild(b); t.appendChild(tr);
+    });
+    d.appendChild(t);
+    const nt=document.createElement("p"); nt.style.fontSize="12px"; nt.style.margin="8px 0"; nt.textContent=sh.note; d.appendChild(nt);
+    const est=document.createElement("p"); est.className="est";
+    const keys=Object.keys(sh.estimated||{}).filter(k=>sh.estimated[k]);
+    est.textContent="估算字段: "+(keys.length?keys.join(", "):"无（均实测）");
+    d.appendChild(est);
+    const use=document.createElement("button"); use.className="btn solid"; use.textContent="在仿真中使用";
+    use.onclick=()=>{ useShip(sh.id); };
+    const src=document.createElement("div"); src.className="src";
+    const a=document.createElement("a"); a.textContent=sh.source; a.href=sh.source_url; a.target="_blank"; a.rel="noopener";
+    src.appendChild(document.createTextNode("来源: ")); src.appendChild(a);
+    d.appendChild(use); d.appendChild(src);
+    g.appendChild(d);
+  });
+}
+
+function berthSVG(port){
+  const L = port.length_m? Math.min(300, port.length_m/30):200;
+  const ang = port.estimated&&port.estimated.heading ? port.heading_deg+"°(估)" : port.heading_deg+"°";
+  return '<svg width="100%" height="90" viewBox="0 0 300 90" style="background:#0b1220;border-radius:6px">'
+    +'<line x1="20" y1="70" x2="280" y2="70" stroke="#64748b" stroke-width="5"/>'
+    +'<text x="20" y="62" fill="#94a3b8" font-size="9">码头线 (护舷 ■)</text>'
+    +'<rect x="40" y="66" width="8" height="8" fill="#f59e0b"/>'
+    +'<rect x="100" y="66" width="8" height="8" fill="#f59e0b"/>'
+    +'<rect x="160" y="66" width="8" height="8" fill="#f59e0b"/>'
+    +'<rect x="220" y="66" width="8" height="8" fill="#f59e0b"/>'
+    +'<text x="20" y="20" fill="#22d3ee" font-size="10">泊位走向 '+ang+' · 水深 '+(port.depth_m||"—")+' m</text>'
+    +'<text x="20" y="36" fill="#94a3b8" font-size="9">长度 '+(port.length_m?port.length_m+" m":"未公开")+' · '+port.fender+'</text>'
+    +'</svg>';
+}
+
+function renderPorts(){
+  const g=document.getElementById("portGrid"); g.textContent="";
+  PORT_LIBRARY.forEach(pt=>{
+    const d=document.createElement("div"); d.className="card";
+    const nm=document.createElement("h3"); nm.textContent=pt.name; nm.style.color="var(--cyan)";
+    const c=document.createElement("div"); c.style.fontSize="12px"; c.style.color="var(--muted)"; c.textContent=pt.country+" · "+pt.berth;
+    d.appendChild(nm); d.appendChild(c);
+    const svg=document.createElement("div"); svg.innerHTML=berthSVG(pt); svg.style.margin="8px 0"; d.appendChild(svg);
+    const t=document.createElement("table");
+    const rows=[
+      ["设计靠泊速度", pt.design_speed_ms+" m/s"],
+      ["典型潮流", pt.current_kn+" kn"],
+      ["常风向", pt.wind_dir]
+    ];
+    rows.forEach(r=>{
+      const tr=document.createElement("tr");
+      const a=document.createElement("td"); a.textContent=r[0];
+      const b=document.createElement("td"); b.className="mono"; b.textContent=r[1];
+      tr.appendChild(a); tr.appendChild(b); t.appendChild(tr);
+    });
+    d.appendChild(t);
+    const nt=document.createElement("p"); nt.style.fontSize="12px"; nt.style.margin="8px 0"; nt.textContent=pt.note; d.appendChild(nt);
+    const use=document.createElement("button"); use.className="btn solid"; use.textContent="在仿真中使用";
+    use.onclick=()=>{ usePort(pt.id); };
+    const src=document.createElement("div"); src.className="src";
+    const a=document.createElement("a"); a.textContent=pt.source; a.href=pt.source_url; a.target="_blank"; a.rel="noopener";
+    src.appendChild(document.createTextNode("来源: ")); src.appendChild(a);
+    d.appendChild(use); d.appendChild(src);
+    g.appendChild(d);
+  });
+}
+
+function renderAccidents(){
+  const ft=document.getElementById("fType"), fp=document.getElementById("fPhase");
+  if(!ft.options.length){
+    [...new Set(ACCIDENT_CASES.map(a=>a.type))].forEach(t=>{
+      const o=document.createElement("option"); o.value=t; o.textContent=t; ft.appendChild(o);
+    });
+    [...new Set(ACCIDENT_CASES.map(a=>a.phase))].forEach(t=>{
+      const o=document.createElement("option"); o.value=t; o.textContent=t; fp.appendChild(o);
+    });
+  }
+  const g=document.getElementById("accGrid"); g.textContent="";
+  const tf=ft.value, pf=fp.value;
+  ACCIDENT_CASES.filter(a=>(!tf||a.type===tf)&&(!pf||a.phase===pf)).forEach(a=>{
+    const d=document.createElement("div"); d.className="card";
+    const h=document.createElement("h3"); h.style.color="var(--amber)"; h.textContent=a.date+" · "+a.ship;
+    d.appendChild(h);
+    const meta=document.createElement("div"); meta.style.fontSize="12px"; meta.style.color="var(--muted)";
+    meta.textContent=a.type+" · "+a.phase+" · "+a.port; d.appendChild(meta);
+    const sm=document.createElement("p"); sm.style.fontSize="12.5px"; sm.style.margin="8px 0"; sm.textContent=a.summary; d.appendChild(sm);
+    const ca=document.createElement("p"); ca.style.fontSize="12.5px"; ca.style.color="var(--amber)"; ca.textContent="直接原因: "+a.cause; d.appendChild(ca);
+    const lo=document.createElement("p"); lo.style.fontSize="12px"; lo.style.color="var(--muted)"; lo.textContent="损失: "+a.loss; d.appendChild(lo);
+    const tags=document.createElement("div");
+    a.tags.forEach(tg=>{
+      const s=document.createElement("span"); s.className="tag danger"; s.textContent=tg; tags.appendChild(s);
+    });
+    d.appendChild(tags);
+    const aLink=document.createElement("a"); aLink.textContent="调查报告（新窗口）"; aLink.href=a.url; aLink.target="_blank"; aLink.rel="noopener";
+    const src=document.createElement("div"); src.className="src"; src.appendChild(aLink); d.appendChild(src);
+    g.appendChild(d);
+  });
+}
+
+function showView(hash){
+  document.querySelectorAll("section[data-view]").forEach(s=>s.classList.toggle("active", s.dataset.view===hash.slice(1)));
+  document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("active", b.dataset.nav===hash));
+  if(hash==="#simulation") requestAnimationFrame(()=>{drawMain();drawTrend();drawRadar();});
+  window.scrollTo(0,0);
+}
+function useShip(id){ SIM.ship=SHIP_LIBRARY.find(s=>s.id===id); document.getElementById("selShip").value=id; resetSim(); location.hash="#simulation"; toast("已载入 "+SIM.ship.name); }
+function usePort(id){ SIM.port=PORT_LIBRARY.find(p=>p.id===id); document.getElementById("selPort").value=id; toast("已载入 "+SIM.port.name); }
+
+/* =====================================================================
+   UI 事件 · 主循环 · 仪表 · 报告导出 · AI 降级 · 设置
+   ===================================================================== */
+function toast(msg, isErr){
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.className=isErr?"show err":"show";
+  clearTimeout(t._tm); t._tm=setTimeout(()=>t.className="",2400);
+}
+function numVal(id,min,max,fallback){
+  const el=document.getElementById(id);
+  let v=parseFloat(el.value);
+  if(!isFinite(v)){ v=fallback; el.value=fallback; toast(id+" 输入非法，已重置",true); }
+  else if(v<min||v>max){ el.value=clamp(v,min,max); toast("超出范围，已限制在 ["+min+","+max+"]",true); v=clamp(v,min,max); }
+  return v;
+}
+function syncSliderLabels(){
+  document.getElementById("labRudder").textContent=SIM.rudder_deg.toFixed(0)+"°";
+  document.getElementById("labTug").textContent=SIM.tug_kN.toFixed(0)+" kN";
+  document.getElementById("rpHtmlab").textContent=(SIM.throttle*100).toFixed(0)+"%";
+}
+
+function applyEnvInputs(){
+  SIM.wind.ms=numVal("inWind",0,30,SIM.wind.ms);
+  SIM.wind.dir=numVal("inWindDir",0,360,SIM.wind.dir);
+  SIM.cur.kn=numVal("inCur",0,5,SIM.cur.kn);
+  SIM.cur.dir=numVal("inCurDir",0,360,SIM.cur.dir);
+}
+
+/* ---------- 右侧仪表 ---------- */
+function kvRow(k,v){
+  const r=document.createElement("div"); r.className="kv";
+  const s=document.createElement("span"); s.textContent=k;
+  const b=document.createElement("b"); b.textContent=v;
+  r.appendChild(s); r.appendChild(b); return r;
+}
+function updateKV(){
+  const box=document.getElementById("kvBox"); if(!box) return;
+  const s=SIM.s, p=SIM._parts||{};
+  const spd=Math.hypot(s.u,s.v)/0.5144;
+  const thrust=(p.X_P||0)/1000;
+  const rudF=Math.hypot(p.Y_R||0,p.X_R||0)/1000;
+  const windF=Math.hypot(p.F_Wx||0,p.F_Wy||0)/1000;
+  const curK=0.5*RHO*SIM.cur.kn*0.5144*SIM.cur.kn*0.5144*SIM.Lpp*SIM.D*0.5/1000;
+  box.textContent="";
+  box.appendChild(kvRow("航速", spd.toFixed(2)+" kn"));
+  box.appendChild(kvRow("横移速度 v", s.v.toFixed(3)+" m/s"));
+  box.appendChild(kvRow("艏向角 ψ", (s.psi/DEG).toFixed(1)+"°"));
+  box.appendChild(kvRow("艏摇角速度", (s.r/DEG).toFixed(2)+" °/s"));
+  box.appendChild(kvRow("距泊位法向", (s.y-SIM.B/2).toFixed(1)+" m"));
+  box.appendChild(kvRow("法向接近速度", SIM.lastVn.toFixed(3)+" m/s"));
+  box.appendChild(kvRow("主机推力", thrust.toFixed(1)+" kN"));
+  box.appendChild(kvRow("舵力", rudF.toFixed(1)+" kN"));
+  box.appendChild(kvRow("风载荷", windF.toFixed(1)+" kN"));
+  box.appendChild(kvRow("流载荷", curK.toFixed(1)+" kN"));
+  const pi=document.getElementById("progInfo");
+  if(pi) pi.textContent="t="+SIM.t.toFixed(1)+"s | dt=0.05s | 倍率 "+SIM.speedMul+"x | "+(SIM.running?"运行中":"暂停");
+  const el=document.getElementById("eventLog");
+  if(el) el.textContent=SIM.eventMsg||"无事件";
+}
+function updateRisk(){
+  const r=riskLevel();
+  const dot=document.getElementById("riskDot"); dot.className="light "+r.cls;
+  document.getElementById("riskText").textContent=r.lvl+"（阈值 "+SAFETY_THRESHOLDS.transverse_ms+"m/s 横移 / "+SAFETY_THRESHOLDS.yaw_rate_dps+"°/s 艏摇）";
+}
+
+/* ---------- 主循环（固定步长累加器） ---------- */
+let _last=performance.now(), _acc=0;
+function frame(now){
+  requestAnimationFrame(frame);
+  const realDt=Math.min(0.1,(now-_last)/1000); _last=now;
+  if(SIM.running){
+    _acc += realDt*SIM.speedMul;
+    let steps=0;
+    while(_acc>=DT && steps<25*SIM.speedMul){
+      if(SIM.auto) autoControl();
+      rk4Step(DT); SIM.t+=DT; steps++; _acc-=DT;
+      if(!SIM.berthDone) berthCheck();
+      SIM.trace.push({t:SIM.t, spd:Math.hypot(SIM.s.u,SIM.s.v)/0.5144, v:SIM.s.v, psi:SIM.s.psi/DEG});
+      if(SIM.trace.length>1200) SIM.trace.shift();
+      TRAIL.push({x:SIM.s.x,y:SIM.s.y});
+      if(TRAIL.length>400) TRAIL.shift();
+      SIM.extremes.maxWindK=Math.max(SIM.extremes.maxWindK, 0.5*RHO_A*SIM.wind.ms*SIM.wind.ms*SIM.A_T/1000);
+      SIM.extremes.maxTug=Math.max(SIM.extremes.maxTug, Math.abs(SIM.tug_kN));
+      SIM.extremes.maxCurK=Math.max(SIM.extremes.maxCurK||0, 0.5*RHO*SIM.cur.kn*0.5144*SIM.cur.kn*0.5144*SIM.Lpp*SIM.D*0.5/1000);
+    }
+  }
+  if(location.hash==="#simulation"){ drawMain(); drawTrend(); drawRadar(); updateKV(); updateRisk(); }
+}
+
+/* ---------- 报告 ---------- */
+function fillReport(){
+  const s=SIM.ship, p=SIM.port;
+  const sm=document.getElementById("repSummary"); sm.textContent="";
+  const t=document.createElement("table");
+  [["船舶", s.name+" ("+s.type+")"],["港口", p.name+", "+p.country],
+   ["环境", "风 "+SIM.wind.ms.toFixed(1)+"m/s @"+SIM.wind.dir+"° · 流 "+SIM.cur.kn.toFixed(1)+"kn @"+SIM.cur.dir+"°"],
+   ["初始", "距泊位"+document.getElementById("inD0").value+"m · 航速"+document.getElementById("inU0").value+"kn"],
+   ["仿真时长", SIM.t.toFixed(1)+" s · 阶段:"+SIM.phase]].forEach(r=>{
+    const tr=document.createElement("tr");
+    const a=document.createElement("td"); a.textContent=r[0]; a.style.color="var(--muted)";
+    const b=document.createElement("td"); b.textContent=r[1];
+    tr.appendChild(a); tr.appendChild(b); t.appendChild(tr);
+  });
+  sm.appendChild(t);
+  const ex=document.getElementById("repExtremes"); ex.textContent="";
+  const e=SIM.extremes||{maxVn:0,maxV:0,maxYaw:0,fenderE:0};
+  const rt=document.createElement("table");
+  [["最大法向接近速度", e.maxVn.toFixed(3)+" m/s"],
+   ["最大横移速度", e.maxV.toFixed(3)+" m/s"],
+   ["最大艏摇角速度", e.maxYaw.toFixed(2)+" °/s"],
+   ["最大护舷能量", (e.fenderE||0).toFixed(1)+" kJ"],
+   ["风险结论", riskLevel().lvl+" · "+(SIM.phase==="success"?"靠泊成功":SIM.phase==="collision"?"碰撞/危险靠泊":"未完成")]
+  ].forEach(r=>{
+    const tr=document.createElement("tr");
+    const a=document.createElement("td"); a.textContent=r[0];
+    const b=document.createElement("td"); b.className="mono"; b.textContent=r[1];
+    tr.appendChild(a); tr.appendChild(b); rt.appendChild(tr);
+  });
+  ex.appendChild(rt);
+}
+
+function buildRulePlan(){
+  const s=SIM.ship, p=SIM.port, e=SIM.extremes||{};
+  const lines=[];
+  lines.push("【后舷靠泊作业方案（规则引擎生成）】");
+  lines.push("船舶: "+s.name+" ("+s.type+", LOA "+s.LOA+"m, Δ "+s.displacement_ton+"t)");
+  lines.push("泊位: "+p.name+"（"+p.country+"，水深 "+p.depth_m+"m，护舷: "+p.fender+"）");
+  lines.push("");
+  lines.push("一、进港路线");
+  lines.push("  1. 距泊位 ≥200m：沿航道减速至 ≤5kn，保持艏向平行泊位走向（"+p.heading_deg+"°）。");
+  lines.push("  2. 距泊位 100–200m：减速至 2–3kn，备妥 "+(SIM.wind.ms>SAFETY_THRESHOLDS.wind_limit_ms?"3 艘":"2 艘")+" 拖轮，左舷带拖轮。");
+  lines.push("二、减速点与舵令");
+  lines.push("  3. 距泊位 50m：车置于微速后退（throttle≈-10%），舵角 "+(SIM.s.psi>0?5:-5)+"° 修正艏向。");
+  lines.push("  4. 距泊位 10m：主机停，仅用拖轮横向靠拢；目标法向速度 ≤"+p.design_speed_ms+" m/s。");
+  lines.push("三、拖轮配置");
+  lines.push("  5. 船首拖轮提供横向靠拢力（≤100kN），船尾拖轮抑制艏摇；");
+  lines.push("     横风 "+SIM.wind.ms.toFixed(1)+"m/s "+(SIM.wind.ms>SAFETY_THRESHOLDS.wind_limit_ms?"【超作业上限，建议延时】":"在作业上限内")+"。");
+  lines.push("四、应急");
+  lines.push("  6. 若法向速度 >0.25m/s 或首缆滑脱，立即全速后退并船首拖轮拉离；");
+  lines.push("     本工况最大法向速度 "+(e.maxVn||0).toFixed(3)+"m/s，最大护舷能量 "+(e.fenderE||0).toFixed(1)+"kJ。");
+  lines.push("");
+  lines.push("（本方案由本地规则引擎基于船型/港口/环境生成，未调用外部 AI。）");
+  return lines.join("\n");
+}
+
+async function genPlan(){
+  fillReport();
+  const planEl=document.getElementById("repPlan");
+  const base=(localStorage.getItem("mds_base")||"").trim();
+  const key=(localStorage.getItem("mds_key")||"").trim();
+  const model=(localStorage.getItem("mds_model")||"gpt-4o-mini").trim();
+  if(!base||!key){
+    planEl.textContent=buildRulePlan();
+    toast("未配置 API Key，已使用本地规则引擎");
+    return;
+  }
+  planEl.textContent="正在调用 "+model+" …";
+  const prompt="为后舷靠泊仿真生成结构化作业方案。船舶:"+SIM.ship.name+"; 港口:"+SIM.port.name+"; 风"+SIM.wind.ms+"m/s; 流"+SIM.cur.kn+"kn; 最大法向速度"+((SIM.extremes||{}).maxVn||0)+"m/s。给出进港路线/减速点/舵角序列/拖轮配置/应急预案。";
+  try{
+    const r=await fetch(base.replace(/\/$/,"")+"/chat/completions",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},
+      body:JSON.stringify({model:model,messages:[{role:"user",content:prompt}],temperature:0.3})
+    });
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const j=await r.json();
+    planEl.textContent=(j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content)||buildRulePlan();
+    toast("AI 方案已生成");
+  }catch(err){
+    planEl.textContent=buildRulePlan()+"\n\n[AI 调用失败: "+err.message+" —— 已回退规则引擎方案]";
+    toast("AI 调用失败，已回退规则引擎", true);
+  }
+}
+
+function download(name, content, mime){
+  const blob=new Blob([content],{type:mime||"text/plain"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},500);
+}
+function exportMd(){
+  fillReport();
+  const e=SIM.extremes||{};
+  const d=new Date(); const pad=x=>String(x).padStart(2,"0");
+  const stamp=d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"-"+pad(d.getHours())+pad(d.getMinutes());
+  let md="# MarineDockSim 靠泊复盘报告\n\n";
+  md+="- 船舶: "+SIM.ship.name+" ("+SIM.ship.type+")\n";
+  md+="- 港口: "+SIM.port.name+", "+SIM.port.country+"\n";
+  md+="- 工况: 风 "+SIM.wind.ms+"m/s @"+SIM.wind.dir+"° · 流 "+SIM.cur.kn+"kn @"+SIM.cur.dir+"°\n";
+  md+="- 仿真时长: "+SIM.t.toFixed(1)+"s · 阶段: "+SIM.phase+"\n\n";
+  md+="## 关键极值\n- 最大法向接近速度: "+e.maxVn.toFixed(3)+" m/s\n";
+  md+="- 最大横移: "+e.maxV.toFixed(3)+" m/s\n- 最大艏摇: "+e.maxYaw.toFixed(2)+" °/s\n";
+  md+="- 最大护舷能量: "+(e.fenderE||0).toFixed(1)+" kJ\n\n";
+  md+="## 作业方案\n\n"+(document.getElementById("repPlan").textContent)+"\n";
+  download("berthing-report-"+stamp+".md", md, "text/markdown");
+  toast("Markdown 已下载");
+}
+function exportCsv(){
+  let csv="t_s,u_ms,v_ms,r_rad,x_m,y_m,psi_deg,spd_kn\n";
+  for(const r of SIM.trace){
+    csv+=[r.t.toFixed(2),"",r.v.toFixed(4),"",r.psi.toFixed(2),r.spd.toFixed(3)].join(",")+"\n";
+  }
+  download("berthing-timeseries.csv", csv, "text/csv");
+  toast("CSV 已下载（"+SIM.trace.length+" 行）");
+}
+
+/* ---------- 设置 ---------- */
+function loadCfg(){
+  document.getElementById("cfgBase").value=localStorage.getItem("mds_base")||"";
+  document.getElementById("cfgKey").value=localStorage.getItem("mds_key")||"";
+  document.getElementById("cfgModel").value=localStorage.getItem("mds_model")||"gpt-4o-mini";
+}
+function bindSettings(){
+  document.getElementById("cfgBase").addEventListener("change",e=>{localStorage.setItem("mds_base",e.target.value);});
+  document.getElementById("cfgKey").addEventListener("change",e=>{localStorage.setItem("mds_key",e.target.value);});
+  document.getElementById("cfgModel").addEventListener("change",e=>{localStorage.setItem("mds_model",e.target.value);});
+  document.getElementById("btnTestConn").onclick=async()=>{
+    const base=(document.getElementById("cfgBase").value||"").trim();
+    const key=(document.getElementById("cfgKey").value||"").trim();
+    const model=(document.getElementById("cfgModel").value||"gpt-4o-mini").trim();
+    const out=document.getElementById("connResult");
+    if(!base||!key){ out.textContent="请先填写 Base URL 与 Key"; return; }
+    out.textContent="测试中…";
+    try{
+      const r=await fetch(base.replace(/\/$/,"")+"/chat/completions",{
+        method:"POST",
+        headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},
+        body:JSON.stringify({model:model,messages:[{role:"user",content:"ping"}],max_tokens:5})
+      });
+      out.textContent=r.ok?"连接成功 (HTTP 200)":"连接失败 HTTP "+r.status;
+    }catch(e){ out.textContent="连接失败: "+e.message; }
+  };
+  document.getElementById("btnClear").onclick=()=>{
+    localStorage.removeItem("mds_base"); localStorage.removeItem("mds_key"); localStorage.removeItem("mds_model");
+    loadCfg(); toast("本地设置已清除");
+  };
+}
+
+/* ---------- 初始化与事件绑定 ---------- */
+function bindSimCanvas(){
+  const cv=document.getElementById("cvMain");
+  let dragging=false, sx=0, sy=0;
+  cv.addEventListener("pointerdown",e=>{dragging=true; sx=e.clientX; sy=e.clientY; cv.setPointerCapture(e.pointerId);});
+  cv.addEventListener("pointermove",e=>{
+    if(!dragging) return;
+    CAM.x-=(e.clientX-sx)/CAM.zoom; CAM.y-=(e.clientY-sy)/CAM.zoom;
+    sx=e.clientX; sy=e.clientY;
+  });
+  cv.addEventListener("pointerup",()=>dragging=false);
+  cv.addEventListener("wheel",e=>{
+    e.preventDefault();
+    CAM.zoom=clamp(CAM.zoom*(e.deltaY<0?1.12:0.89),1,24);
+  },{passive:false});
+}
+
+function init(){
+  // 选择框
+  const ss=document.getElementById("selShip");
+  SHIP_LIBRARY.forEach(sh=>{const o=document.createElement("option");o.value=sh.id;o.textContent=sh.name;ss.appendChild(o);});
+  ss.value=SIM.ship.id;
+  const sp=document.getElementById("selPort");
+  PORT_LIBRARY.forEach(pt=>{const o=document.createElement("option");o.value=pt.id;o.textContent=pt.name;sp.appendChild(o);});
+  sp.value=SIM.port.id;
+  // 视图渲染
+  renderDash(); renderShips(); renderPorts(); renderAccidents();
+  loadCfg(); bindSettings();
+  bindSimCanvas();
+  resetSim();
+  // 导航
+  document.querySelectorAll(".navbtn").forEach(b=>b.addEventListener("click",()=>{location.hash=b.dataset.nav;}));
+  window.addEventListener("hashchange",()=>showView(location.hash||"#dashboard"));
+  document.getElementById("btnGoSim").onclick=()=>{location.hash="#simulation";};
+  // 仿真控制
+  document.getElementById("btnStart").onclick=()=>{SIM.running=true;};
+  document.getElementById("btnPause").onclick=()=>{SIM.running=false;};
+  document.getElementById("btnReset").onclick=()=>{SIM.running=false; resetSim(); toast("已重置");};
+  document.getElementById("btnSpeed").onclick=(e)=>{
+    SIM.speedMul = SIM.speedMul===1?2:SIM.speedMul===2?5:1;
+    e.target.textContent=SIM.speedMul+"x";
+  };
+  document.getElementById("btnAuto").onclick=(e)=>{
+    SIM.auto=!SIM.auto;
+    e.target.textContent="自动靠泊: "+(SIM.auto?"开":"关");
+  };
+  // 选择船/港口
+  ss.onchange=()=>{SIM.ship=SHIP_LIBRARY.find(x=>x.id===ss.value); resetSim();};
+  sp.onchange=()=>{SIM.port=PORT_LIBRARY.find(x=>x.id===sp.value); toast("已载入 "+SIM.port.name);};
+  // 环境/初始
+  ["inWind","inWindDir","inCur","inCurDir"].forEach(id=>document.getElementById(id).addEventListener("change",applyEnvInputs));
+  ["inD0","inOff","inPsi0","inU0"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{SIM.running=false; resetSim();}));
+  // 控制滑块
+  document.getElementById("inRPM").addEventListener("input",e=>{SIM.throttle=clamp(e.target.value/100,-0.3,1); document.getElementById("rpHtmlab").textContent=e.target.value+"%";});
+  document.getElementById("inRudder").addEventListener("input",e=>{SIM.rudder_deg=clamp(parseFloat(e.target.value),-35,35); syncSliderLabels();});
+  document.getElementById("inTug").addEventListener("input",e=>{SIM.tug_kN=clamp(parseFloat(e.target.value),-100,100); syncSliderLabels();});
+  // 事故筛选
+  document.getElementById("fType").onchange=renderAccidents;
+  document.getElementById("fPhase").onchange=renderAccidents;
+  // 报告
+  document.getElementById("btnGenPlan").onclick=genPlan;
+  document.getElementById("btnMd").onclick=exportMd;
+  document.getElementById("btnCsv").onclick=exportCsv;
+  applyEnvInputs();
+  showView(location.hash||"#dashboard");
+  requestAnimationFrame(frame);
+}
+window.addEventListener("DOMContentLoaded", init);
+
+</script>
+</body>
+</html>
